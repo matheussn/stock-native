@@ -1,11 +1,18 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "stock",
-  "outputfilename": "stock",
+  "name": "Obreiro",
+  "outputfilename": "Obreiro",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "info": {
+    "companyName": "Netto Desenvolvimento LTDA",
+    "productName": "Obreiro",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright (c) 2026 Netto Desenvolvimento LTDA",
+    "comments": "Sistema desenvolvido para auxiliar na gestao de centros espiritas, iniciando pelo controle de estoque de doacoes e alimentos arrecadados, com possibilidade de expansao para cadastro de mediuns, organizacao administrativa e gestao financeira, promovendo mais organizacao, transparencia e apoio as atividades fraternas da instituicao."
+  },
   "author": {
     "name": "Matheus Neto",
     "email": "matheusneto23@gmail.com"

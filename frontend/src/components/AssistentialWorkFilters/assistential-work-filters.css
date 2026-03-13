@@ -1,0 +1,20 @@
+.filters {
+  display: flex;
+  gap: 6px;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  color: var(--text);
+  border-radius: 999px;
+  font-family: inherit;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.chip-active {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: #fff;
+}
