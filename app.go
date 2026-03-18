@@ -105,6 +105,43 @@ func (a *App) SetAssistentialWorkActive(id int64, isActive bool) error {
 	return nil
 }
 
+func (a *App) CreateInstitution(name, address, cnpj, responsibleName, phone string) (models.Institution, error) {
+	institution, err := services.NewInstitutionService(a.db).Create(a.requestContext(), name, address, cnpj, responsibleName, phone)
+	if err != nil {
+		a.logMutationFailure("create institution", err, "name=%q", name)
+		return models.Institution{}, err
+	}
+
+	a.logMutationSuccess("institution created", "id=%d name=%q", institution.ID, institution.Name)
+	return institution, nil
+}
+
+func (a *App) ListInstitutions(includeInactive bool) ([]models.Institution, error) {
+	return services.NewInstitutionService(a.db).List(a.requestContext(), includeInactive)
+}
+
+func (a *App) UpdateInstitution(id int64, name, address, cnpj, responsibleName, phone string) (models.Institution, error) {
+	institution, err := services.NewInstitutionService(a.db).Update(a.requestContext(), id, name, address, cnpj, responsibleName, phone)
+	if err != nil {
+		a.logMutationFailure("update institution", err, "id=%d name=%q", id, name)
+		return models.Institution{}, err
+	}
+
+	a.logMutationSuccess("institution updated", "id=%d name=%q", institution.ID, institution.Name)
+	return institution, nil
+}
+
+func (a *App) SetInstitutionActive(id int64, isActive bool) error {
+	err := services.NewInstitutionService(a.db).SetActive(a.requestContext(), id, isActive)
+	if err != nil {
+		a.logMutationFailure("toggle institution active flag", err, "id=%d active=%t", id, isActive)
+		return err
+	}
+
+	a.logMutationSuccess("institution active flag updated", "id=%d active=%t", id, isActive)
+	return nil
+}
+
 func (a *App) CreateProduct(name, baseUnit, description string) (models.Product, error) {
 	product, err := services.NewProductService(a.db).Create(a.requestContext(), name, baseUnit, description)
 	if err != nil {
@@ -300,8 +337,9 @@ func (a *App) CreateMovement(input services.CreateMovementInput) (models.Movemen
 		a.logMutationFailure(
 			"create movement",
 			err,
-			"assistential_work_id=%d type=%q product_items=%d group_items=%d",
+			"assistential_work_id=%d institution_id=%d type=%q product_items=%d group_items=%d",
 			input.AssistentialWorkID,
+			input.InstitutionID,
 			input.Type,
 			len(input.ProductItems),
 			len(input.GroupItems),
@@ -311,9 +349,10 @@ func (a *App) CreateMovement(input services.CreateMovementInput) (models.Movemen
 
 	a.logMutationSuccess(
 		"movement created",
-		"id=%d assistential_work_id=%d type=%q product_items=%d group_items=%d",
+		"id=%d assistential_work_id=%d institution_id=%d type=%q product_items=%d group_items=%d",
 		movement.ID,
 		movement.AssistentialWorkID,
+		movement.InstitutionID,
 		movement.Type,
 		len(input.ProductItems),
 		len(input.GroupItems),

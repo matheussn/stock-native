@@ -108,9 +108,36 @@ export namespace models {
 	        this.ended_at = source["ended_at"];
 	    }
 	}
+	export class Institution {
+	    id: number;
+	    name: string;
+	    address: string;
+	    cnpj: string;
+	    responsible_name: string;
+	    phone: string;
+	    is_active: number;
+	    created_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Institution(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.address = source["address"];
+	        this.cnpj = source["cnpj"];
+	        this.responsible_name = source["responsible_name"];
+	        this.phone = source["phone"];
+	        this.is_active = source["is_active"];
+	        this.created_at = source["created_at"];
+	    }
+	}
 	export class Movement {
 	    id: number;
 	    assistential_work_id: number;
+	    institution_id: number;
 	    type: string;
 	    notes: string;
 	    created_at: string;
@@ -123,6 +150,7 @@ export namespace models {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.assistential_work_id = source["assistential_work_id"];
+	        this.institution_id = source["institution_id"];
 	        this.type = source["type"];
 	        this.notes = source["notes"];
 	        this.created_at = source["created_at"];
@@ -317,6 +345,7 @@ export namespace services {
 	}
 	export class CreateMovementInput {
 	    assistential_work_id: number;
+	    institution_id: number;
 	    type: string;
 	    notes: string;
 	    product_items: MovementProductItemInput[];
@@ -329,6 +358,7 @@ export namespace services {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.assistential_work_id = source["assistential_work_id"];
+	        this.institution_id = source["institution_id"];
 	        this.type = source["type"];
 	        this.notes = source["notes"];
 	        this.product_items = this.convertValues(source["product_items"], MovementProductItemInput);

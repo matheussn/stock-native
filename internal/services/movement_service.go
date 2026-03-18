@@ -22,6 +22,7 @@ type MovementGroupItemInput struct {
 
 type CreateMovementInput struct {
 	AssistentialWorkID int64                      `json:"assistential_work_id"`
+	InstitutionID      int64                      `json:"institution_id"`
 	Type               string                     `json:"type"`
 	Notes              string                     `json:"notes"`
 	ProductItems       []MovementProductItemInput `json:"product_items"`
@@ -44,6 +45,9 @@ func (s *MovementService) Create(ctx context.Context, input CreateMovementInput)
 	if input.AssistentialWorkID <= 0 {
 		return models.Movement{}, errors.New("assistential_work_id must be greater than zero")
 	}
+	if input.InstitutionID < 0 {
+		return models.Movement{}, errors.New("institution_id cannot be negative")
+	}
 	if len(input.ProductItems) == 0 && len(input.GroupItems) == 0 {
 		return models.Movement{}, errors.New("movement must contain at least one product item or group item")
 	}
@@ -56,10 +60,19 @@ func (s *MovementService) Create(ctx context.Context, input CreateMovementInput)
 		_ = tx.Rollback()
 	}()
 
+	storedInstitutionID := int64(0)
+	if movementType == "out" && input.InstitutionID > 0 {
+		if err := ensureActiveInstitutionTx(ctx, tx, input.InstitutionID); err != nil {
+			return models.Movement{}, fmt.Errorf("validate institution: %w", err)
+		}
+		storedInstitutionID = input.InstitutionID
+	}
+
 	res, err := tx.ExecContext(
 		ctx,
-		`INSERT INTO movement (assistential_work_id, type, notes) VALUES (?, ?, ?)`,
+		`INSERT INTO movement (assistential_work_id, institution_id, type, notes) VALUES (?, ?, ?, ?)`,
 		input.AssistentialWorkID,
+		nullableInt64(storedInstitutionID),
 		movementType,
 		nullableText(input.Notes),
 	)
@@ -164,6 +177,7 @@ func (s *MovementService) List(ctx context.Context, movementType string, assiste
 SELECT
 	id,
 	assistential_work_id,
+	COALESCE(institution_id, 0),
 	type,
 	COALESCE(notes, ''),
 	created_at
@@ -195,7 +209,7 @@ WHERE 1 = 1
 	result := make([]models.Movement, 0)
 	for rows.Next() {
 		var m models.Movement
-		if err := rows.Scan(&m.ID, &m.AssistentialWorkID, &m.Type, &m.Notes, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.AssistentialWorkID, &m.InstitutionID, &m.Type, &m.Notes, &m.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan movement: %w", err)
 		}
 		result = append(result, m)
@@ -443,11 +457,18 @@ func getMovementByIDTx(ctx context.Context, tx *sql.Tx, movementID int64) (model
 	var m models.Movement
 	err := tx.QueryRowContext(
 		ctx,
-		`SELECT id, assistential_work_id, type, COALESCE(notes, ''), created_at FROM movement WHERE id = ?`,
+		`SELECT id, assistential_work_id, COALESCE(institution_id, 0), type, COALESCE(notes, ''), created_at FROM movement WHERE id = ?`,
 		movementID,
-	).Scan(&m.ID, &m.AssistentialWorkID, &m.Type, &m.Notes, &m.CreatedAt)
+	).Scan(&m.ID, &m.AssistentialWorkID, &m.InstitutionID, &m.Type, &m.Notes, &m.CreatedAt)
 	if err != nil {
 		return models.Movement{}, fmt.Errorf("get movement by id: %w", err)
 	}
 	return m, nil
+}
+
+func nullableInt64(value int64) any {
+	if value <= 0 {
+		return nil
+	}
+	return value
 }

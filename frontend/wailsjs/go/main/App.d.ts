@@ -17,6 +17,8 @@ export function CreateAssistentialWork(arg1:string,arg2:string):Promise<models.A
 
 export function CreateFamily(arg1:number,arg2:string,arg3:number,arg4:string,arg5:string):Promise<models.Family>;
 
+export function CreateInstitution(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<models.Institution>;
+
 export function CreateMovement(arg1:services.CreateMovementInput):Promise<models.Movement>;
 
 export function CreateProduct(arg1:string,arg2:string,arg3:string):Promise<models.Product>;
@@ -47,6 +49,8 @@ export function ListFamilies(arg1:boolean,arg2:number):Promise<Array<models.Fami
 
 export function ListFamilyGroupAssignments(arg1:number):Promise<Array<models.FamilyGroupAssignment>>;
 
+export function ListInstitutions(arg1:boolean):Promise<Array<models.Institution>>;
+
 export function ListMovementGroupItemResolutions(arg1:number):Promise<Array<models.MovementGroupItemResolution>>;
 
 export function ListMovementGroupItems(arg1:number):Promise<Array<models.MovementGroupItem>>;
@@ -75,6 +79,8 @@ export function SetAssistentialWorkActive(arg1:number,arg2:boolean):Promise<void
 
 export function SetFamilyActive(arg1:number,arg2:boolean):Promise<void>;
 
+export function SetInstitutionActive(arg1:number,arg2:boolean):Promise<void>;
+
 export function SetProductActive(arg1:number,arg2:boolean):Promise<void>;
 
 export function SetProductGroupActive(arg1:number,arg2:boolean):Promise<void>;
@@ -84,6 +90,8 @@ export function SetProductVariationActive(arg1:number,arg2:boolean):Promise<void
 export function UpdateAssistentialWork(arg1:number,arg2:string,arg3:string):Promise<models.AssistentialWork>;
 
 export function UpdateFamily(arg1:number,arg2:string,arg3:number,arg4:string,arg5:string):Promise<models.Family>;
+
+export function UpdateInstitution(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<models.Institution>;
 
 export function UpdateProduct(arg1:number,arg2:string,arg3:string,arg4:string):Promise<models.Product>;
 

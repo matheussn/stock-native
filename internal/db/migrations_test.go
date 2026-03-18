@@ -123,4 +123,44 @@ WHERE type = 'index'
 			t.Fatalf("expected index %q to exist after migrations", indexName)
 		}
 	}
+
+	var institutionTableCount int
+	if err := conn.QueryRow(`
+SELECT COUNT(*)
+FROM sqlite_master
+WHERE type = 'table'
+  AND name = 'institution'
+`).Scan(&institutionTableCount); err != nil {
+		t.Fatalf("check institution table: %v", err)
+	}
+	if institutionTableCount != 1 {
+		t.Fatalf("expected institution table to exist after migrations")
+	}
+
+	rows, err = conn.Query(`PRAGMA table_info(movement)`)
+	if err != nil {
+		t.Fatalf("inspect movement table: %v", err)
+	}
+	defer rows.Close()
+
+	foundInstitutionColumn := false
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull, pk int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			t.Fatalf("scan movement column: %v", err)
+		}
+		if name == "institution_id" {
+			foundInstitutionColumn = true
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate movement columns: %v", err)
+	}
+	if !foundInstitutionColumn {
+		t.Fatalf("expected movement.institution_id column to exist after migrations")
+	}
 }

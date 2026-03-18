@@ -23,6 +23,7 @@ func TestMovementServiceCreateWithProductsAndGroups(t *testing.T) {
 	}
 
 	workSvc := NewAssistentialWorkService(conn)
+	institutionSvc := NewInstitutionService(conn)
 	productSvc := NewProductService(conn)
 	variationSvc := NewProductVariationService(conn)
 	groupSvc := NewProductGroupService(conn)
@@ -32,6 +33,10 @@ func TestMovementServiceCreateWithProductsAndGroups(t *testing.T) {
 	work, err := workSvc.Create(ctx, "Fraternidade", "")
 	if err != nil {
 		t.Fatalf("create work: %v", err)
+	}
+	institution, err := institutionSvc.Create(ctx, "Casa Esperanca", "", "", "", "")
+	if err != nil {
+		t.Fatalf("create institution: %v", err)
 	}
 
 	rice, err := productSvc.Create(ctx, "Arroz", "g", "")
@@ -79,6 +84,7 @@ func TestMovementServiceCreateWithProductsAndGroups(t *testing.T) {
 
 	movement, err := movementSvc.Create(ctx, CreateMovementInput{
 		AssistentialWorkID: work.ID,
+		InstitutionID:      institution.ID,
 		Type:               "out",
 		Notes:              "Distribuicao mensal",
 		ProductItems: []MovementProductItemInput{
@@ -94,10 +100,21 @@ func TestMovementServiceCreateWithProductsAndGroups(t *testing.T) {
 	if movement.ID <= 0 {
 		t.Fatalf("expected valid movement id")
 	}
+	if movement.InstitutionID != institution.ID {
+		t.Fatalf("expected institution id %d, got %d", institution.ID, movement.InstitutionID)
+	}
 
 	assertStock(t, conn, rice5kg.ID, 1)
 	assertStock(t, conn, rice1kg.ID, 1)
 	assertStock(t, conn, beans1kg.ID, 1)
+
+	var storedInstitutionID sql.NullInt64
+	if err := conn.QueryRow(`SELECT institution_id FROM movement WHERE id = ?`, movement.ID).Scan(&storedInstitutionID); err != nil {
+		t.Fatalf("read movement institution: %v", err)
+	}
+	if !storedInstitutionID.Valid || storedInstitutionID.Int64 != institution.ID {
+		t.Fatalf("expected stored institution id %d, got %+v", institution.ID, storedInstitutionID)
+	}
 
 	var resolutionCount int64
 	if err := conn.QueryRow(`SELECT COUNT(*) FROM movement_group_item_resolution`).Scan(&resolutionCount); err != nil {
@@ -222,6 +239,106 @@ func TestMovementServiceRespectsSharedStockAcrossMultipleGroups(t *testing.T) {
 	assertStock(t, conn, rice2kg.ID, 0)
 	assertStock(t, conn, rice1kg.ID, 1)
 	assertStock(t, conn, beans1kg.ID, 0)
+}
+
+func TestMovementServiceIgnoresInstitutionForEntry(t *testing.T) {
+	conn := openMovementTestDB(t)
+	t.Cleanup(func() {
+		_ = conn.Close()
+	})
+
+	if err := db.Migrate(conn); err != nil {
+		t.Fatalf("migrate test db: %v", err)
+	}
+
+	workSvc := NewAssistentialWorkService(conn)
+	institutionSvc := NewInstitutionService(conn)
+	productSvc := NewProductService(conn)
+	variationSvc := NewProductVariationService(conn)
+	movementSvc := NewMovementService(conn)
+	ctx := context.Background()
+
+	work, _ := workSvc.Create(ctx, "Recepcao", "")
+	institution, _ := institutionSvc.Create(ctx, "Lar da Luz", "", "", "", "")
+	product, _ := productSvc.Create(ctx, "Arroz", "g", "")
+	variation, _ := variationSvc.Create(ctx, product.ID, "Pacote 1kg", 1000)
+
+	movement, err := movementSvc.Create(ctx, CreateMovementInput{
+		AssistentialWorkID: work.ID,
+		InstitutionID:      institution.ID,
+		Type:               "in",
+		ProductItems: []MovementProductItemInput{
+			{ProductVariationID: variation.ID, Quantity: 2},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create entry movement: %v", err)
+	}
+	if movement.InstitutionID != 0 {
+		t.Fatalf("expected entry movement to ignore institution, got %d", movement.InstitutionID)
+	}
+
+	var storedInstitutionID sql.NullInt64
+	if err := conn.QueryRow(`SELECT institution_id FROM movement WHERE id = ?`, movement.ID).Scan(&storedInstitutionID); err != nil {
+		t.Fatalf("read movement institution: %v", err)
+	}
+	if storedInstitutionID.Valid {
+		t.Fatalf("expected null institution for entry movement, got %+v", storedInstitutionID)
+	}
+}
+
+func TestMovementServiceRejectsInactiveOrMissingInstitutionOnExit(t *testing.T) {
+	conn := openMovementTestDB(t)
+	t.Cleanup(func() {
+		_ = conn.Close()
+	})
+
+	if err := db.Migrate(conn); err != nil {
+		t.Fatalf("migrate test db: %v", err)
+	}
+
+	workSvc := NewAssistentialWorkService(conn)
+	institutionSvc := NewInstitutionService(conn)
+	productSvc := NewProductService(conn)
+	variationSvc := NewProductVariationService(conn)
+	movementSvc := NewMovementService(conn)
+	ctx := context.Background()
+
+	work, _ := workSvc.Create(ctx, "Fraternidade", "")
+	institution, _ := institutionSvc.Create(ctx, "Casa de Apoio", "", "", "", "")
+	product, _ := productSvc.Create(ctx, "Feijao", "g", "")
+	variation, _ := variationSvc.Create(ctx, product.ID, "Pacote 1kg", 1000)
+	if _, err := conn.Exec(`UPDATE product_variation SET current_stock = 2 WHERE id = ?`, variation.ID); err != nil {
+		t.Fatalf("seed stock: %v", err)
+	}
+
+	if err := institutionSvc.SetActive(ctx, institution.ID, false); err != nil {
+		t.Fatalf("deactivate institution: %v", err)
+	}
+
+	_, err := movementSvc.Create(ctx, CreateMovementInput{
+		AssistentialWorkID: work.ID,
+		InstitutionID:      institution.ID,
+		Type:               "out",
+		ProductItems: []MovementProductItemInput{
+			{ProductVariationID: variation.ID, Quantity: 1},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected inactive institution error")
+	}
+
+	_, err = movementSvc.Create(ctx, CreateMovementInput{
+		AssistentialWorkID: work.ID,
+		InstitutionID:      9999,
+		Type:               "out",
+		ProductItems: []MovementProductItemInput{
+			{ProductVariationID: variation.ID, Quantity: 1},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected missing institution error")
+	}
 }
 
 func assertStock(t *testing.T, conn *sql.DB, variationID, expected int64) {

@@ -26,6 +26,10 @@ export function CreateFamily(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['CreateFamily'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function CreateInstitution(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['CreateInstitution'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function CreateMovement(arg1) {
   return window['go']['main']['App']['CreateMovement'](arg1);
 }
@@ -86,6 +90,10 @@ export function ListFamilyGroupAssignments(arg1) {
   return window['go']['main']['App']['ListFamilyGroupAssignments'](arg1);
 }
 
+export function ListInstitutions(arg1) {
+  return window['go']['main']['App']['ListInstitutions'](arg1);
+}
+
 export function ListMovementGroupItemResolutions(arg1) {
   return window['go']['main']['App']['ListMovementGroupItemResolutions'](arg1);
 }
@@ -142,6 +150,10 @@ export function SetFamilyActive(arg1, arg2) {
   return window['go']['main']['App']['SetFamilyActive'](arg1, arg2);
 }
 
+export function SetInstitutionActive(arg1, arg2) {
+  return window['go']['main']['App']['SetInstitutionActive'](arg1, arg2);
+}
+
 export function SetProductActive(arg1, arg2) {
   return window['go']['main']['App']['SetProductActive'](arg1, arg2);
 }
@@ -160,6 +172,10 @@ export function UpdateAssistentialWork(arg1, arg2, arg3) {
 
 export function UpdateFamily(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['UpdateFamily'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function UpdateInstitution(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['UpdateInstitution'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function UpdateProduct(arg1, arg2, arg3, arg4) {

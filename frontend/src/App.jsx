@@ -1,5 +1,5 @@
-import {lazy, Suspense, useEffect, useState} from 'react';
-import {NavLink, Navigate, Route, Routes} from 'react-router-dom';
+import {lazy, Suspense, useCallback, useEffect, useMemo, useState} from 'react';
+import {NavLink, Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
 import {
   ChooseRestoreSource,
   GetStartupStatus,
@@ -8,11 +8,14 @@ import {
 } from '../wailsjs/go/main/App';
 import AssistentialWorksPage from './pages/AssistentialWorksPage';
 import FamiliesPage from './pages/FamiliesPage';
+import InstitutionsPage from './pages/InstitutionsPage';
+import MovementCreatePage from './pages/MovementsPage/movement-create-page';
 import MovementsPage from './pages/MovementsPage';
 import ProductGroupsPage from './pages/ProductGroupsPage';
 import ProductsPage from './pages/ProductsPage';
 import SettingsPage from './pages/SettingsPage';
 import StockPage from './pages/StockPage';
+import {AppNavigationGuardContext} from './utils/app-navigation-guard';
 import {getFriendlyErrorMessage} from './utils/error-message';
 import './App.css';
 
@@ -21,6 +24,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const navigationItems = [
   {to: '/dashboard', label: 'Dashboard'},
   {to: '/obras-assistenciais', label: 'Obras Assistenciais'},
+  {to: '/instituicoes', label: 'Instituições'},
   {to: '/produtos', label: 'Produtos'},
   {to: '/grupos', label: 'Grupos'},
   {to: '/familias', label: 'Famílias'},
@@ -30,11 +34,14 @@ const navigationItems = [
 ];
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [startupStatus, setStartupStatus] = useState(null);
   const [startupLoading, setStartupLoading] = useState(true);
   const [startupBusy, setStartupBusy] = useState('');
   const [startupActionError, setStartupActionError] = useState('');
   const [restoreCandidatePath, setRestoreCandidatePath] = useState('');
+  const [beforeLeaveHandler, setBeforeLeaveHandler] = useState(null);
 
   useEffect(() => {
     void loadStartupStatus();
@@ -114,6 +121,35 @@ function App() {
 
     setRestoreCandidatePath('');
   }
+
+  const registerBeforeLeaveHandler = useCallback((handler) => {
+    if (!handler) {
+      setBeforeLeaveHandler(null);
+      return;
+    }
+
+    setBeforeLeaveHandler(() => handler);
+  }, []);
+
+  const requestNavigation = useCallback((to) => {
+    if (!to || to === location.pathname) {
+      return;
+    }
+
+    if (beforeLeaveHandler) {
+      const handled = beforeLeaveHandler(to);
+      if (handled) {
+        return;
+      }
+    }
+
+    navigate(to);
+  }, [beforeLeaveHandler, location.pathname, navigate]);
+
+  const navigationGuardValue = useMemo(() => ({
+    registerBeforeLeaveHandler,
+    requestNavigation
+  }), [registerBeforeLeaveHandler, requestNavigation]);
 
   if (startupLoading) {
     return (
@@ -201,7 +237,8 @@ function App() {
   }
 
   return (
-    <div className='app-layout'>
+    <AppNavigationGuardContext.Provider value={navigationGuardValue}>
+      <div className='app-layout'>
       <aside className='app-sidebar'>
         <div className='brand'>
           <strong>Centro Espírita</strong>
@@ -214,6 +251,10 @@ function App() {
               key={item.to}
               to={item.to}
               className={({isActive}) => `menu-link${isActive ? ' menu-link-active' : ''}`}
+              onClick={(event) => {
+                event.preventDefault();
+                requestNavigation(item.to);
+              }}
             >
               {item.label}
             </NavLink>
@@ -227,17 +268,20 @@ function App() {
             <Route path='/' element={<Navigate to='/dashboard' replace />} />
             <Route path='/dashboard' element={<DashboardPage />} />
             <Route path='/obras-assistenciais' element={<AssistentialWorksPage />} />
+            <Route path='/instituicoes' element={<InstitutionsPage />} />
             <Route path='/produtos' element={<ProductsPage />} />
             <Route path='/grupos' element={<ProductGroupsPage />} />
             <Route path='/familias' element={<FamiliesPage />} />
             <Route path='/movimentacoes' element={<MovementsPage />} />
+            <Route path='/movimentacoes/nova' element={<MovementCreatePage />} />
             <Route path='/estoque' element={<StockPage />} />
             <Route path='/configuracoes' element={<SettingsPage />} />
             <Route path='*' element={<Navigate to='/dashboard' replace />} />
           </Routes>
         </Suspense>
       </div>
-    </div>
+      </div>
+    </AppNavigationGuardContext.Provider>
   );
 }
 

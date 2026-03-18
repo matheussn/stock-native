@@ -8,7 +8,7 @@
 
 ## Overview
 
-This database supports an inventory system for a spiritual center. It handles product registration with variations, product groups (baskets), assistential works, family management, and stock movements (in/out).
+This database supports an inventory system for a spiritual center. It handles product registration with variations, product groups (baskets), assistential works, institutions, family management, and stock movements (in/out).
 
 The stock balance lives in `product_variation.current_stock` and must be updated by the **application layer** Ã¢â‚¬â€ never via triggers. Every stock-affecting operation must run inside a **transaction** to guarantee consistency.
 
@@ -53,27 +53,30 @@ Migration `v2` (`add_indexes`) adds the secondary indexes used by the current ap
 
 ## Entity Relationship Summary
 
-```
+```text
 assistential_work
-    Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ movement (1:N)
-    Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ family (1:N)
-            Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ family_group_assignment (1:N)
-                        Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ product_group
+    -> movement (1:N)
+    -> family (1:N)
+        -> family_group_assignment (1:N)
+            -> product_group
+
+institution
+    -> movement (1:N, optional on movement)
 
 product
-    Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ product_variation (1:N)  Ã¢â€ Â actual stock lives here
+    -> product_variation (1:N)  <- actual stock lives here
 
 product_group
-    Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ product_group_item (1:N)
-                Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ product (generic reference, no variation)
+    -> product_group_item (1:N)
+        -> product (generic reference, no variation)
 
 movement
-    Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ movement_product_item (1:N)
-    Ã¢â€â€š           Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ product_variation
-    Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ movement_group_item (1:N)
-                Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ product_group
-                Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ movement_group_item_resolution (1:N)
-                            Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ product_variation
+    -> movement_product_item (1:N)
+        -> product_variation
+    -> movement_group_item (1:N)
+        -> product_group
+        -> movement_group_item_resolution (1:N)
+            -> product_variation
 ```
 
 ---
@@ -88,6 +91,22 @@ Represents the assistential works carried out by the spiritual center (ex: Frate
 | `id` | INTEGER PK | Auto-incremented identifier |
 | `name` | TEXT NOT NULL | Work name |
 | `description` | TEXT | Optional description |
+| `is_active` | INTEGER | 1 = active, 0 = inactive. Default: 1 |
+| `created_at` | TEXT | Creation timestamp. Default: `datetime('now')` |
+
+---
+
+### `institution`
+Represents external institutions that may receive stock on outgoing movements.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER PK | Auto-incremented identifier |
+| `name` | TEXT NOT NULL | Institution name |
+| `address` | TEXT | Optional address |
+| `cnpj` | TEXT | Optional CNPJ |
+| `responsible_name` | TEXT | Optional responsible person name |
+| `phone` | TEXT | Optional phone |
 | `is_active` | INTEGER | 1 = active, 0 = inactive. Default: 1 |
 | `created_at` | TEXT | Creation timestamp. Default: `datetime('now')` |
 
@@ -188,17 +207,20 @@ Historical record of which product group (basket) a family receives. A new recor
 ---
 
 ### `movement`
-Header of a stock movement. Each record represents a single in or out operation, linked to an assistential work.
+Header of a stock movement. Each record represents a single in or out operation, linked to an assistential work and optionally to an institution on outgoing movements.
 
 | Column | Type | Description |
 |---|---|---|
 | `id` | INTEGER PK | Auto-incremented identifier |
 | `assistential_work_id` | INTEGER FK | References `assistential_work(id)` |
+| `institution_id` | INTEGER FK | Optional. References `institution(id)` |
 | `type` | TEXT NOT NULL | `'in'` for stock entry, `'out'` for stock exit |
 | `notes` | TEXT | Optional notes |
 | `created_at` | TEXT | Creation timestamp. Default: `datetime('now')` |
 
 > **Constraint:** `CHECK (type IN ('in', 'out'))`
+>
+> **Application rule:** `institution_id` is only used for `'out'` movements. Entries always persist it as `NULL`.
 
 ---
 
@@ -278,6 +300,17 @@ CREATE TABLE assistential_work (
     description TEXT,
     is_active   INTEGER NOT NULL DEFAULT 1,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE institution (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL,
+    address          TEXT,
+    cnpj             TEXT,
+    responsible_name TEXT,
+    phone            TEXT,
+    is_active        INTEGER NOT NULL DEFAULT 1,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE product (
@@ -363,3 +396,5 @@ CREATE TABLE movement_group_item_resolution (
     quantity               INTEGER NOT NULL CHECK (quantity > 0)
 );
 ```
+
+
